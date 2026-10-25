@@ -41,7 +41,10 @@ export interface Quiz {
   approved_at?: string | null;
   start_delay_seconds?: number;
   total_marks: number;
+  has_negative_marking?: boolean;
+  negative_marks?: number; // e.g. 0.25, 0.33, 0.5, 1
   created_at?: string;
+  show_correct_answers?: boolean; // When true, students can view correct answers & explanations after submitting
 }
 
 export interface Question {
@@ -51,6 +54,7 @@ export interface Question {
   options: string[];
   correct_index: number;
   marks: number;
+  negative_marks?: number;
   explanation?: string;
   created_at?: string;
 }

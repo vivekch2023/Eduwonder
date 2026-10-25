@@ -11,6 +11,7 @@ import {
   downloadSampleQuestionsCSV,
 } from '@/lib/csv';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import InspectStudentPaperModal from '@/components/admin/InspectStudentPaperModal';
 import {
   Shield,
   BookOpen,
@@ -31,6 +32,7 @@ import {
   Unlock,
   Check,
   Eye,
+  EyeOff,
   LogOut,
   FileSpreadsheet,
   Menu,
@@ -56,7 +58,9 @@ export default function AdminDashboardPage() {
     deleteNote,
     addStudentsFromCSV,
     createQuiz,
+    deleteQuiz,
     toggleQuizApproval,
+    toggleShowCorrectAnswers,
     unblockStudentAttempt,
   } = useAppStore();
 
@@ -65,6 +69,26 @@ export default function AdminDashboardPage() {
   >('NOTES');
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [inspectingAttempt, setInspectingAttempt] = useState<QuizAttempt | null>(null);
+  const [showCorrectAnswersOnSubmit, setShowCorrectAnswersOnSubmit] = useState<boolean>(false);
+
+  const handleDeleteQuiz = async (quizId: string, quizTitle: string) => {
+    const ok = window.confirm(
+      `Are you sure you want to permanently delete the quiz "${quizTitle}"?\n\nThis will remove the quiz, all its questions, and all student attempts permanently.`
+    );
+    if (!ok) return;
+
+    try {
+      await deleteQuiz(quizId);
+      if (selectedMonitorQuizId === quizId) {
+        const remaining = quizzes.filter((q) => q.id !== quizId);
+        setSelectedMonitorQuizId(remaining.length > 0 ? remaining[0].id : '');
+      }
+      alert(`Quiz "${quizTitle}" deleted successfully.`);
+    } catch (e) {
+      alert('Error deleting quiz: ' + e);
+    }
+  };
 
   // Guard: if not admin, redirect to login
   useEffect(() => {
@@ -292,6 +316,7 @@ export default function AdminDashboardPage() {
           description: quizDesc.trim() || 'Answer all questions within the allowed time limit.',
           duration_minutes: Number(quizDuration) || 15,
           total_marks: questionsList.reduce((acc, q) => acc + (q.marks || 1), 0),
+          show_correct_answers: showCorrectAnswersOnSubmit,
         },
         questionsList
       );
@@ -299,6 +324,7 @@ export default function AdminDashboardPage() {
       alert(`Quiz "${quizTitle}" with ${questionsList.length} questions created successfully!`);
       setQuizTitle('');
       setQuizDesc('');
+      setShowCorrectAnswersOnSubmit(false);
     } catch (err) {
       alert('Error creating quiz: ' + err);
     }
@@ -846,33 +872,79 @@ export default function AdminDashboardPage() {
                     className="p-4 bg-white/10 rounded-2xl backdrop-blur-sm border border-white/10 flex items-center justify-between gap-3"
                   >
                     <div className="truncate">
-                      <span className="text-[10px] uppercase font-bold text-violet-300 truncate block">
-                        {quiz.subject_name}
-                      </span>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="text-[10px] uppercase font-bold text-violet-300 truncate">
+                          {quiz.subject_name}
+                        </span>
+                        {quiz.show_correct_answers ? (
+                          <span className="text-[9px] font-extrabold bg-emerald-400 text-slate-950 px-2 py-0.5 rounded-full">
+                            Answers Visible
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-extrabold bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full">
+                            Answers Hidden
+                          </span>
+                        )}
+                      </div>
                       <h5 className="text-sm font-bold truncate">{quiz.title}</h5>
                       <span className="text-xs text-indigo-200 font-mono">
                         {quiz.duration_minutes} Mins • Total Marks: {quiz.total_marks}
                       </span>
                     </div>
 
-                    <button
-                      onClick={() => toggleQuizApproval(quiz.id)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center gap-1.5 ${
-                        quiz.is_approved
-                          ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                          : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black'
-                      }`}
-                    >
-                      {quiz.is_approved ? (
-                        <>
-                          <Lock className="w-3.5 h-3.5" /> Pause Test
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5" /> Approve Test (Start 3m countdown)
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => toggleShowCorrectAnswers(quiz.id)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center gap-1.5 ${
+                          quiz.show_correct_answers
+                            ? 'bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold'
+                            : 'bg-indigo-600 hover:bg-indigo-700 text-white font-bold'
+                        }`}
+                        title={
+                          quiz.show_correct_answers
+                            ? 'Answers currently visible to students. Click to hide.'
+                            : 'Answers currently hidden from students. Click to allow.'
+                        }
+                      >
+                        {quiz.show_correct_answers ? (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5" /> Hide Answers
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" /> Allow Answers
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => toggleQuizApproval(quiz.id)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 flex items-center gap-1.5 ${
+                          quiz.is_approved
+                            ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                            : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black'
+                        }`}
+                      >
+                        {quiz.is_approved ? (
+                          <>
+                            <Lock className="w-3.5 h-3.5" /> Pause Test
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-3.5 h-3.5" /> Approve Test (Start 3m countdown)
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteQuiz(quiz.id, quiz.title)}
+                        className="px-2.5 py-2 rounded-xl text-xs font-bold transition-all shadow-md shrink-0 bg-rose-500/20 hover:bg-rose-600 text-rose-300 hover:text-white border border-rose-400/30 flex items-center gap-1"
+                        title="Delete quiz permanently"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">Delete</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1012,6 +1084,27 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setQuizDesc(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs sm:text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500"
                     />
+                  </div>
+
+                  <div className="md:col-span-2 p-3.5 bg-violet-50/70 dark:bg-violet-950/30 rounded-2xl border border-violet-200/70 dark:border-violet-800/50 flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="allowAnswersCheckbox"
+                      checked={showCorrectAnswersOnSubmit}
+                      onChange={(e) => setShowCorrectAnswersOnSubmit(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 text-violet-600 rounded focus:ring-violet-500 cursor-pointer"
+                    />
+                    <label
+                      htmlFor="allowAnswersCheckbox"
+                      className="text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none"
+                    >
+                      <strong className="text-slate-900 dark:text-white block">
+                        Allow students to view correct answers immediately upon submitting
+                      </strong>
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 block">
+                        Unchecked (recommended): Hides answer key to prevent answer leaks. Admin can release it anytime.
+                      </span>
+                    </label>
                   </div>
                 </div>
 
@@ -1341,16 +1434,24 @@ export default function AdminDashboardPage() {
                             {att.score} / {att.total_marks}
                           </td>
                           <td className="py-3 px-3 text-right">
-                            {att.is_blocked || att.status === 'blocked' ? (
+                            <div className="flex items-center justify-end gap-1.5">
                               <button
-                                onClick={() => unblockStudentAttempt(att.id)}
-                                className="inline-flex items-center gap-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold px-3 py-1.5 rounded-xl text-xs shadow-sm transition-all"
+                                onClick={() => setInspectingAttempt(att)}
+                                className="inline-flex items-center gap-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold px-2.5 py-1.5 rounded-xl text-xs transition-colors shrink-0 shadow-sm"
+                                title="View student answers & comparison with answer key"
                               >
-                                <Unlock className="w-3.5 h-3.5" /> Allow Re-exam
+                                <Eye className="w-3.5 h-3.5 text-violet-600" /> Answers
                               </button>
-                            ) : (
-                              <span className="text-slate-400 text-[11px]">—</span>
-                            )}
+
+                              {att.is_blocked || att.status === 'blocked' ? (
+                                <button
+                                  onClick={() => unblockStudentAttempt(att.id)}
+                                  className="inline-flex items-center gap-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold px-3 py-1.5 rounded-xl text-xs shadow-sm transition-all shrink-0"
+                                >
+                                  <Unlock className="w-3.5 h-3.5" /> Re-exam
+                                </button>
+                              ) : null}
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1416,13 +1517,14 @@ export default function AdminDashboardPage() {
                       <th className="pb-3 px-3">Marks</th>
                       <th className="pb-3 px-3">Percentage</th>
                       <th className="pb-3 px-3">Status</th>
-                      <th className="pb-3 px-3 text-right">Submitted At</th>
+                      <th className="pb-3 px-3">Submitted At</th>
+                      <th className="pb-3 px-3 text-right">Paper</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                     {quizAttempts.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-400">
+                        <td colSpan={8} className="py-8 text-center text-slate-400">
                           No students have submitted this test yet.
                         </td>
                       </tr>
@@ -1463,10 +1565,19 @@ export default function AdminDashboardPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="py-3 px-3 text-right text-slate-400 font-mono text-[11px]">
+                              <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">
                                 {att.submitted_at
                                   ? new Date(att.submitted_at).toLocaleTimeString()
                                   : 'In Progress'}
+                              </td>
+                              <td className="py-3 px-3 text-right">
+                                <button
+                                  onClick={() => setInspectingAttempt(att)}
+                                  className="inline-flex items-center gap-1 bg-violet-50 hover:bg-violet-100 dark:bg-violet-950/60 dark:hover:bg-violet-900/60 text-violet-700 dark:text-violet-300 font-bold px-2.5 py-1.5 rounded-xl text-xs transition-colors shadow-sm"
+                                  title="Inspect student's submitted paper"
+                                >
+                                  <Eye className="w-3.5 h-3.5" /> Paper
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1479,6 +1590,15 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </main>
+
+      {/* Staff Paper Inspection Modal */}
+      <InspectStudentPaperModal
+        attempt={inspectingAttempt}
+        quiz={quizzes.find((q) => q.id === inspectingAttempt?.quiz_id)}
+        questions={questions}
+        isOpen={!!inspectingAttempt}
+        onClose={() => setInspectingAttempt(null)}
+      />
     </div>
   );
 }

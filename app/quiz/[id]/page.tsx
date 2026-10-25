@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import { useAppStore } from '@/lib/store';
@@ -19,7 +20,10 @@ import {
   RotateCcw,
   UserCheck,
   Lock,
+  Unlock,
   Sparkles,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export default function QuizExecutionPage() {
@@ -35,6 +39,8 @@ export default function QuizExecutionPage() {
     startQuizAttempt,
     recordQuizViolation,
     submitQuizAttempt,
+    isAdmin,
+    toggleShowCorrectAnswers,
   } = useAppStore();
 
   const quiz = quizzes.find((q) => q.id === quizId);
@@ -633,88 +639,165 @@ export default function QuizExecutionPage() {
             </div>
           </div>
 
-          {/* Question by Question Review */}
-          <div className="mt-8 space-y-5">
-            <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-violet-600" /> Review Your Answers
-            </h4>
+          {/* Admin Override Control Banner */}
+          {isAdmin && (
+            <div className="mt-6 p-4 rounded-2xl bg-violet-50 dark:bg-violet-950/40 border border-violet-200 dark:border-violet-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-2.5 text-xs text-violet-900 dark:text-violet-200">
+                <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold shrink-0">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-bold">Admin Clearance Active</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Student answer visibility is currently:{' '}
+                    <span
+                      className={`font-bold ${
+                        quiz?.show_correct_answers
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-amber-600 dark:text-amber-400'
+                      }`}
+                    >
+                      {quiz?.show_correct_answers
+                        ? 'ALLOWED (Students can view answers & explanations)'
+                        : 'HIDDEN (Students cannot see answers & explanations)'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => quiz && toggleShowCorrectAnswers(quiz.id)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition-all shrink-0 ${
+                  quiz?.show_correct_answers
+                    ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {quiz?.show_correct_answers ? (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5" /> Hide Answers From Students
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3.5 h-3.5" /> Allow Answers To Students
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
-            {quizQuestions.map((q, idx) => {
-              const selected = selectedAnswers[q.id];
-              const isCorrect = selected === q.correct_index;
-              const isUnanswered = selected === undefined;
+          {/* Question by Question Review or Admin Restricted State */}
+          {quiz?.show_correct_answers ? (
+            <div className="mt-8 space-y-5">
+              <div className="flex items-center justify-between">
+                <h4 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-violet-600" /> Review Your Answers & Explanations
+                </h4>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full">
+                  Allowed by Admin
+                </span>
+              </div>
 
-              return (
-                <div
-                  key={q.id}
-                  className={`p-5 rounded-2xl border transition-all ${
-                    isCorrect
-                      ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
-                      : isUnanswered
-                      ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
-                      : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/60'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <span className="text-xs font-bold text-slate-500">Question {idx + 1}</span>
-                    {isCorrect ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Correct (+{q.marks || 1})
-                      </span>
-                    ) : isUnanswered ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        Unattempted (0)
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-950 px-2 py-0.5 rounded-full">
-                        <XCircle className="w-3.5 h-3.5" /> Incorrect (0)
-                      </span>
+              {quizQuestions.map((q, idx) => {
+                const selected = selectedAnswers[q.id];
+                const isCorrect = selected === q.correct_index;
+                const isUnanswered = selected === undefined;
+
+                return (
+                  <div
+                    key={q.id}
+                    className={`p-5 rounded-2xl border transition-all ${
+                      isCorrect
+                        ? 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60'
+                        : isUnanswered
+                        ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700'
+                        : 'bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/60'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <span className="text-xs font-bold text-slate-500">Question {idx + 1}</span>
+                      {isCorrect ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Correct (+{q.marks || 1})
+                        </span>
+                      ) : isUnanswered ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                          Unattempted (0)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-950 px-2 py-0.5 rounded-full">
+                          <XCircle className="w-3.5 h-3.5" /> Incorrect (0)
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white mb-3">
+                      {q.question_text}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {q.options.map((opt, optIdx) => {
+                        const isOptionSelected = selected === optIdx;
+                        const isCorrectOption = optIdx === q.correct_index;
+
+                        let pillStyle =
+                          'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
+                        if (isCorrectOption) {
+                          pillStyle =
+                            'bg-emerald-100 dark:bg-emerald-900/60 border-emerald-400 text-emerald-900 dark:text-emerald-200 font-bold';
+                        } else if (isOptionSelected && !isCorrectOption) {
+                          pillStyle =
+                            'bg-rose-100 dark:bg-rose-900/60 border-rose-400 text-rose-900 dark:text-rose-200';
+                        }
+
+                        return (
+                          <div
+                            key={optIdx}
+                            className={`p-2.5 rounded-xl border flex items-center gap-2 ${pillStyle}`}
+                          >
+                            <span className="w-5 h-5 rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center font-bold text-[10px]">
+                              {String.fromCharCode(65 + optIdx)}
+                            </span>
+                            <span className="truncate">{opt}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {q.explanation && (
+                      <div className="mt-3 pt-2 text-[11px] text-slate-500 dark:text-slate-400 border-t border-black/5 dark:border-white/5">
+                        <strong className="text-slate-700 dark:text-slate-300">Explanation:</strong>{' '}
+                        {q.explanation}
+                      </div>
                     )}
                   </div>
-
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white mb-3">
-                    {q.question_text}
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {q.options.map((opt, optIdx) => {
-                      const isOptionSelected = selected === optIdx;
-                      const isCorrectOption = optIdx === q.correct_index;
-
-                      let pillStyle =
-                        'bg-white dark:bg-slate-800/70 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300';
-                      if (isCorrectOption) {
-                        pillStyle =
-                          'bg-emerald-100 dark:bg-emerald-900/60 border-emerald-400 text-emerald-900 dark:text-emerald-200 font-bold';
-                      } else if (isOptionSelected && !isCorrectOption) {
-                        pillStyle =
-                          'bg-rose-100 dark:bg-rose-900/60 border-rose-400 text-rose-900 dark:text-rose-200';
-                      }
-
-                      return (
-                        <div
-                          key={optIdx}
-                          className={`p-2.5 rounded-xl border flex items-center gap-2 ${pillStyle}`}
-                        >
-                          <span className="w-5 h-5 rounded-md bg-black/5 dark:bg-white/10 flex items-center justify-center font-bold text-[10px]">
-                            {String.fromCharCode(65 + optIdx)}
-                          </span>
-                          <span className="truncate">{opt}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {q.explanation && (
-                    <div className="mt-3 pt-2 text-[11px] text-slate-500 dark:text-slate-400 border-t border-black/5 dark:border-white/5">
-                      <strong className="text-slate-700 dark:text-slate-300">Explanation:</strong>{' '}
-                      {q.explanation}
-                    </div>
-                  )}
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-8 p-6 sm:p-8 rounded-3xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <Lock className="w-6 h-6" />
+              </div>
+              <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                Detailed Answer Key Protected by Administrator
+              </h4>
+              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-lg mx-auto leading-relaxed">
+                Your responses and total score ({finalScore} / {maxMarks}) have been securely submitted to the faculty grading database.
+                To maintain test integrity while other students complete their exam, correct answers and step-by-step explanations remain restricted until released by your course instructor.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-200/60 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200">
+                  <Clock className="w-3.5 h-3.5" /> Answer key awaiting admin release
                 </div>
-              );
-            })}
-          </div>
+                <Link
+                  href="/admin/login"
+                  className="inline-flex items-center gap-1 text-xs text-violet-600 dark:text-violet-400 hover:underline font-semibold"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" /> Staff Login for Admin View
+                </Link>
+              </div>
+            </div>
+          )}
 
           <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800 flex justify-center">
             <button

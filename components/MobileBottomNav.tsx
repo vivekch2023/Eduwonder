@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BookOpen, HelpCircle, Bookmark, Shield } from 'lucide-react';
+import { Home, BookOpen, HelpCircle, Bookmark } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 
 export default function MobileBottomNav() {
@@ -28,7 +28,6 @@ export default function MobileBottomNav() {
       icon: Bookmark,
       badge: bookmarks.length > 0 ? bookmarks.length : null,
     },
-    { label: 'Admin', href: '/admin', icon: Shield },
   ];
 
   return (

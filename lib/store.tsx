@@ -33,7 +33,9 @@ interface AppContextType {
     quiz: Omit<Quiz, 'id' | 'created_at' | 'is_approved' | 'approved_at'>,
     questions: Omit<Question, 'id' | 'quiz_id' | 'created_at'>[]
   ) => Promise<Quiz>;
+  deleteQuiz: (quizId: string) => Promise<void>;
   toggleQuizApproval: (quizId: string) => Promise<void>;
+  toggleShowCorrectAnswers: (quizId: string) => Promise<void>;
   verifyStudent: (rollNumber: string) => Promise<Student | null>;
   startQuizAttempt: (quizId: string, rollNumber: string, studentName: string) => Promise<QuizAttempt>;
   recordQuizViolation: (attemptId: string, reason: string) => Promise<QuizAttempt | null>;
@@ -73,7 +75,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const localStudents = localStorage.getItem('eduwonder_students');
       if (localStudents) setStudents(JSON.parse(localStudents));
       const localQuizzes = localStorage.getItem('eduwonder_quizzes');
-      if (localQuizzes) setQuizzes(JSON.parse(localQuizzes));
+      if (localQuizzes) {
+        try {
+          const parsed = JSON.parse(localQuizzes);
+          setQuizzes(
+            parsed.map((q: Quiz) => ({
+              ...q,
+              show_correct_answers: q.show_correct_answers ?? false,
+            }))
+          );
+        } catch {
+          setQuizzes(INITIAL_QUIZZES);
+        }
+      }
       const localQuestions = localStorage.getItem('eduwonder_questions');
       if (localQuestions) setQuestions(JSON.parse(localQuestions));
       const localAttempts = localStorage.getItem('eduwonder_attempts');
@@ -298,6 +312,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('eduwonder_quizzes', JSON.stringify(updated));
   };
 
+  // Toggle whether students can view correct answers & explanations after submission
+  const toggleShowCorrectAnswers = async (quizId: string) => {
+    const target = quizzes.find((q) => q.id === quizId);
+    if (!target) return;
+
+    const nextVal = !target.show_correct_answers;
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase
+          .from('quizzes')
+          .update({ show_correct_answers: nextVal })
+          .eq('id', quizId);
+      } catch (e) {
+        console.warn('Supabase toggleShowCorrectAnswers error:', e);
+      }
+    }
+
+    const updated = quizzes.map((q) =>
+      q.id === quizId ? { ...q, show_correct_answers: nextVal } : q
+    );
+    setQuizzes(updated);
+    localStorage.setItem('eduwonder_quizzes', JSON.stringify(updated));
+  };
+
+  // Delete a Quiz along with its questions and student attempts
+  const deleteQuiz = async (quizId: string) => {
+    if (isSupabaseConfigured()) {
+      try {
+        await Promise.allSettled([
+          supabase.from('quiz_attempts').delete().eq('quiz_id', quizId),
+          supabase.from('questions').delete().eq('quiz_id', quizId),
+          supabase.from('quizzes').delete().eq('id', quizId),
+        ]);
+      } catch (e) {
+        console.warn('Supabase deleteQuiz error:', e);
+      }
+    }
+
+    const updatedQuizzes = quizzes.filter((q) => q.id !== quizId);
+    const updatedQuestions = questions.filter((q) => q.quiz_id !== quizId);
+    const updatedAttempts = attempts.filter((a) => a.quiz_id !== quizId);
+
+    setQuizzes(updatedQuizzes);
+    setQuestions(updatedQuestions);
+    setAttempts(updatedAttempts);
+
+    localStorage.setItem('eduwonder_quizzes', JSON.stringify(updatedQuizzes));
+    localStorage.setItem('eduwonder_questions', JSON.stringify(updatedQuestions));
+    localStorage.setItem('eduwonder_attempts', JSON.stringify(updatedAttempts));
+  };
+
   // Verify Student
   const verifyStudent = async (rollNumber: string): Promise<Student | null> => {
     const cleanRoll = rollNumber.trim().toLowerCase();
@@ -513,7 +579,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteNote,
         addStudentsFromCSV,
         createQuiz,
+        deleteQuiz,
         toggleQuizApproval,
+        toggleShowCorrectAnswers,
         verifyStudent,
         startQuizAttempt,
         recordQuizViolation,
