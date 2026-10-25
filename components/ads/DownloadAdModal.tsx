@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Note } from '@/lib/types';
 import { X, Download, ShieldCheck, Sparkles, CheckCircle2, ArrowRight } from 'lucide-react';
+import { triggerVignetteAd } from '@/lib/ad-helpers';
 
 interface DownloadAdModalProps {
   note: Note | null;
@@ -22,6 +23,9 @@ export default function DownloadAdModal({ note, isOpen, onClose }: DownloadAdMod
       setHasTriggeredDownload(false);
       return;
     }
+
+    // Trigger Monetag Vignette Ad when download flow initiates
+    triggerVignetteAd();
 
     setCountdown(5);
     setDownloadReady(false);
@@ -51,6 +55,7 @@ export default function DownloadAdModal({ note, isOpen, onClose }: DownloadAdMod
 
   const executeDownload = () => {
     if (!note) return;
+    triggerVignetteAd();
     const a = document.createElement('a');
     a.href = note.file_url;
     a.download = `${note.lecture_title.replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;

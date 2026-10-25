@@ -22,7 +22,7 @@ export default function HeaderAdBanner() {
 
         <div className="flex items-center gap-3 shrink-0">
           <a
-            href="https://github.com"
+            href="https://uplcm.com/4/12119025"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 bg-white text-violet-900 hover:bg-violet-50 font-semibold px-3 py-1 rounded-md text-xs transition-colors shadow-sm"

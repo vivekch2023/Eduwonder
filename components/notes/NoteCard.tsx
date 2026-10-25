@@ -4,6 +4,7 @@ import React from 'react';
 import { Note } from '@/lib/types';
 import { useAppStore } from '@/lib/store';
 import { FileText, Download, Eye, Bookmark, Share2 } from 'lucide-react';
+import { triggerVignetteAd } from '@/lib/ad-helpers';
 
 interface NoteCardProps {
   note: Note;
@@ -104,7 +105,10 @@ export default function NoteCard({ note, onPreview, onDownload }: NoteCardProps)
 
           {/* Download with 5s countdown Ad */}
           <button
-            onClick={() => onDownload(note)}
+            onClick={() => {
+              triggerVignetteAd();
+              onDownload(note);
+            }}
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-xs shadow-md shadow-violet-600/20 transition-all hover:scale-[1.02] active:scale-[0.98] min-h-[44px]"
           >
             <Download className="w-3.5 h-3.5" />

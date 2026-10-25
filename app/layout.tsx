@@ -3,6 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AppProvider } from '@/lib/store';
 import HeaderAdBanner from '@/components/ads/HeaderAdBanner';
+import MonetagAdScript from '@/components/ads/MonetagAdScript';
 import Navbar from '@/components/Navbar';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import Footer from '@/components/Footer';
@@ -97,6 +98,7 @@ export default function RootLayout({
       <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
         <ThemeProvider>
           <AppProvider>
+            <MonetagAdScript />
             <HeaderAdBanner />
             <Navbar />
             <main className="flex-1">{children}</main>
